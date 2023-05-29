@@ -3,9 +3,11 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
+#include <string.h>
+#include <unistd.h>
 
 #define SERVER_KEY 12345
-#define CLIENT_KEY 54321
+#define CONNECTION_KEY 54321
 
 struct message {
     long mtype;
@@ -13,11 +15,12 @@ struct message {
 };
 
 int main() {
-    int server_msqid, client_msqid;
+    int client_msqid, server_msqid;
     struct message msg;
+    long client_key = getpid();
 
     // Create client message queue
-    if ((client_msqid = msgget(CLIENT_KEY, IPC_CREAT | 0666)) == -1) {
+    if ((client_msqid = msgget(client_key, IPC_CREAT | 0666)) == -1) {
         perror("msgget");
         exit(1);
     }
@@ -28,27 +31,50 @@ int main() {
         exit(1);
     }
 
-    // Send request to server
-    printf("Client: Enter a message: ");
-    fgets(msg.mtext, sizeof(msg.mtext), stdin);
-    msg.mtype = 1; // Message type must be greater than 0
-
-    if (msgsnd(server_msqid, &msg, sizeof(struct message), 0) == -1) {
+    // Connect to the server
+    struct message connection_msg;
+    connection_msg.mtype = CONNECTION_KEY; // Use CONNECTION_KEY as the message type
+    if (msgsnd(server_msqid, &connection_msg, sizeof(struct message), 0) == -1) {
         perror("msgsnd");
         exit(1);
     }
 
-    printf("Client: Request sent\n");
+    printf("Client: Connected to the server.\n");
 
-    // Receive response from server
-    if (msgrcv(client_msqid, &msg, sizeof(struct message), 0, 0) == -1) {
-        perror("msgrcv");
-        exit(1);
+    while (1) {
+        // Get input from the user
+        printf("Enter a message to send to the server (or 'q' to quit): ");
+        fgets(msg.mtext, sizeof(msg.mtext), stdin);
+        int msg_len = strlen(msg.mtext);
+
+        // Remove newline character if present
+        if (msg_len > 0 && msg.mtext[msg_len - 1] == '\n') {
+            msg.mtext[msg_len - 1] = '\0';
+        }
+
+        // Check if the user wants to quit
+        if (strcmp(msg.mtext, "q") == 0) {
+            break;
+        }
+
+        // Send the message to the server
+        msg.mtype = client_key; // Use client_key as the message type
+        if (msgsnd(client_msqid, &msg, sizeof(struct message), 0) == -1) {
+            perror("msgsnd");
+            exit(1);
+        }
+
+        // Receive response from the server
+        if (msgrcv(client_msqid, &msg, sizeof(struct message), client_key, 0) == -1) {
+            perror("msgrcv");
+            exit(1);
+        }
+
+        // Print the response
+        printf("Server response: %s\n", msg.mtext);
     }
 
-    printf("Client: Response received - %s\n", msg.mtext);
-
-    // Remove client message queue
+    // Remove the client message queue
     if (msgctl(client_msqid, IPC_RMID, NULL) == -1) {
         perror("msgctl");
         exit(1);
