@@ -8,25 +8,42 @@
 
 #define PORT 8080
 #define MAX_CLIENTS 5
+#define MAX_MESSAGE_LENGTH 1024
+
+typedef struct {
+    int socket;
+    struct sockaddr_in address;
+} client_info_t;
 
 void *handle_client(void *arg) {
-    int client_socket = *(int *)arg;
-    char buffer[1024] = {0};
+    client_info_t client_info = *((client_info_t *)arg);
+    int client_socket = client_info.socket;
+    char buffer[MAX_MESSAGE_LENGTH] = {0};
     char *message = "Server received your message.";
 
-    // Read client message
-    read(client_socket, buffer, 1024);
-    printf("Client message: %s\n", buffer);
+    while (1) {
+        // Read client message
+        ssize_t bytes_read = read(client_socket, buffer, MAX_MESSAGE_LENGTH);
+        if (bytes_read <= 0) {
+            break; // Exit the loop if there is an error or the client closes the connection
+        }
 
-    // Send response to client
-    write(client_socket, message, strlen(message));
+        printf("Client message: %s\n", buffer);
 
+        // Send response to client
+        write(client_socket, message, strlen(message));
+
+        memset(buffer, 0, sizeof(buffer)); // Clear the buffer
+    }
+
+    printf("Client disconnected. Thread exiting.\n");
     close(client_socket);
+    free(arg);
     pthread_exit(NULL);
 }
 
 int main() {
-    int server_fd, client_socket, opt;
+    int server_fd, client_socket, opt = 1;
     struct sockaddr_in address;
     int addrlen = sizeof(address);
     pthread_t threads[MAX_CLIENTS];
@@ -38,7 +55,7 @@ int main() {
     }
 
     // Set socket options
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR , &opt, sizeof(opt))) {
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
         perror("setsockopt failed");
         exit(EXIT_FAILURE);
     }
@@ -68,8 +85,12 @@ int main() {
             exit(EXIT_FAILURE);
         }
 
+        client_info_t *client_info = (client_info_t *)malloc(sizeof(client_info_t));
+        client_info->socket = client_socket;
+        client_info->address = address;
+
         // Create a new thread for the client
-        if (pthread_create(&threads[MAX_CLIENTS], NULL, handle_client, (void *)&client_socket) < 0) {
+        if (pthread_create(&threads[MAX_CLIENTS], NULL, handle_client, (void *)client_info) < 0) {
             perror("thread creation failed");
             exit(EXIT_FAILURE);
         }
