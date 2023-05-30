@@ -4,10 +4,6 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
-#include <termios.h>
-#include <unistd.h>
-#include <sys/select.h>
-
 
 #define MAX_MESSAGE_SIZE 256
 
@@ -15,26 +11,6 @@ typedef struct {
     long type;
     char text[MAX_MESSAGE_SIZE];
 } Message;
-
-void set_terminal_mode(int enable) {
-    static struct termios old_termios, new_termios;
-    if (enable) {
-        tcgetattr(STDIN_FILENO, &old_termios);
-        new_termios = old_termios;
-        new_termios.c_lflag &= ~(ICANON | ECHO);
-        tcsetattr(STDIN_FILENO, TCSANOW, &new_termios);
-    } else {
-        tcsetattr(STDIN_FILENO, TCSANOW, &old_termios);
-    }
-}
-
-int kbhit() {
-    struct timeval tv = {0, 0};
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(STDIN_FILENO, &fds);
-    return select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv) == 1;
-}
 
 int main() {
     // Generate a key for message queues
@@ -68,37 +44,40 @@ int main() {
     printf("Connected to server (client_queue: %d)\n", client_queue);
     printf("Press 'q' to disconnect.\n");
 
-    set_terminal_mode(1);
+    char message[MAX_MESSAGE_SIZE];
 
     while (1) {
-        if (kbhit()) {
-            char ch = getchar();
-            if (ch == 'q') {
-                break;
-            }
-
-            Message request;
-            request.type = client_queue;
-            // Set the request text...
-            printf("Enter your message: ");
-            fgets(request.text, MAX_MESSAGE_SIZE, stdin);
-
-            // Send request to server's message queue
-            if (msgsnd(server_queue, &request, sizeof(Message) - sizeof(long), 0) == -1) {
-                perror("msgsnd");
-                exit(EXIT_FAILURE);
-            }
+        // Read a message from the console
+        if (fgets(message, MAX_MESSAGE_SIZE, stdin) == NULL) {
+            perror("fgets");
+            exit(EXIT_FAILURE);
         }
 
-        // Check for messages from the server
+        if (message[0] == 'q')
+            break;
+
+        Message request;
+        request.type = client_queue;
+        strcpy(request.text, message);
+
+        // Send request to server's message queue
+        if (msgsnd(server_queue, &request, sizeof(Message) - sizeof(long), 0) == -1) {
+            perror("msgsnd");
+            exit(EXIT_FAILURE);
+        }
+
+        // Receive response from server's message queue
         Message response;
-        if (msgrcv(client_queue, &response, sizeof(Message) - sizeof(long), client_queue, IPC_NOWAIT) != -1) {
-            // Process and display the response...
-            printf("Received response from server: %s", response.text);
+        if (msgrcv(client_queue, &response, sizeof(Message) - sizeof(long), client_queue, 0) == -1) {
+            perror("msgrcv");
+            exit(EXIT_FAILURE);
         }
-    }
 
-    set_terminal_mode(0);
+        // Display the response from the server
+        printf("Received response from server: %s", response.text);
+
+        fflush(stdout);  // Flush the output buffer to ensure immediate display
+    }
 
     // Gracefully disconnect from the server
     Message disconnect_request;
