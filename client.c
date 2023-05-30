@@ -17,7 +17,8 @@ struct message {
 
 int main() {
     int client_msqid;
-    key_t client_key = getpid();
+    key_t client_key = 1234;
+    printf("process key %d \n",client_key);
 
     // Create client message queue
     if ((client_msqid = msgget(client_key, IPC_CREAT | 0666)) == -1) {
@@ -32,11 +33,12 @@ int main() {
 
     // Get server message queue
     int server_msqid;
-    if ((server_msqid = msgget(SERVER_KEY, 0666)) == -1) {
+    if ((server_msqid = msgget(SERVER_KEY, 0666 | IPC_CREAT)) == -1) {
         perror("msgget");
         exit(1);
     }
 
+    printf("this is smth %d",server_msqid);
     // Send connection request to the server
     if (msgsnd(server_msqid, &connection_msg, sizeof(struct message), 0) == -1) {
         perror("msgsnd");

@@ -74,6 +74,8 @@ int main() {
         exit(1);
     }
 
+    printf("server message_%d ", server_msqid);
+
     printf("Server: Waiting for client connections...\n");
 
     while (1) {
@@ -100,7 +102,9 @@ int main() {
 
             // Create a new thread for the client
             int client_id = num_clients - 1;
-            pthread_create(&(connected_clients[client_id].thread), NULL, client_thread, &(client_id));
+            int *id = malloc(sizeof(int)); 
+            *id = client_id;
+            pthread_create(&(connected_clients[client_id].thread), NULL, client_thread, id);
         } else {
             printf("Server: Maximum number of clients reached. Connection request rejected.\n");
         }
