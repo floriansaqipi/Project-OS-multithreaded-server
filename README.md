@@ -9,6 +9,9 @@ Projekti ka të bëjë me ndërtimin e një aplikacioni për komunikimin Client-
 
 Për krijimin e aplikavionit është përdorur C në Ubuntu Linux.
 
+Për ekzekutimin e programit duhet të ekzekuhtohet verzioni final. 
+Verzionet e tjera janë mënyra të cilat i kemi menduar për krijimin e aplikacionit .
+
 
 
 ### Kontributorët
