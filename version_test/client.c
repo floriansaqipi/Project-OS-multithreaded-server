@@ -74,7 +74,6 @@ int main(){
         request_msg.client_id = client_key;
         strncpy(request_msg.mtext, data_payload, sizeof(request_msg.mtext));
 
-        printf("request_msg.mtype = %d, request_msg.client_id = %d",request_msg.mtype,request_msg.client_id);
 
         // Send the message to the server
         if (msgsnd(server_msqid, &request_msg, sizeof(struct message), 0) == -1) {
