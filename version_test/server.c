@@ -44,8 +44,6 @@ int main()
         exit(1);
     }
 
-    printf("server message_%d ", server_msqid);
-
     printf("Server: Waiting for client connections...\n");
 
     while (1)
@@ -59,7 +57,6 @@ int main()
             exit(1);
         }
 
-        printf("Im here\n");
 
         int client_msqid = connection_msg.client_id;
 
@@ -69,7 +66,6 @@ int main()
             exit(1);
         }
 
-        printf("client_msqid = %d", client_msqid);
 
         pthread_mutex_lock(&clients_mutex);
 
@@ -101,7 +97,6 @@ int main()
                 printf("Server: Received request from client %d - Message: %s\n", client_id, request_msg.mtext);
 
                 // Process the request based on the request type
-                printf("request_msg.mtype=",request_msg.mtype);
                 
                 switch (request_msg.mtype)
                 {
